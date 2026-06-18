@@ -1,0 +1,940 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Administradora de Planos de Saúde</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Space+Grotesk:wght@500;700&display=swap');
+
+  :root {
+    --bg:      #0b0f1a;
+    --surface: #131825;
+    --card:    #1a2035;
+    --border:  #243050;
+    --accent:  #4f8ef7;
+    --green:   #00c896;
+    --red:     #ff4d6d;
+    --yellow:  #f59e0b;
+    --text:    #e4eaf8;
+    --muted:   #6b7a9e;
+    --radius:  10px;
+  }
+
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: var(--bg); color: var(--text); font-family: 'Inter', sans-serif; font-size: 14px; min-height: 100vh; }
+
+  /* Header */
+  header {
+    background: var(--surface); border-bottom: 1px solid var(--border);
+    padding: 0 28px; display: flex; align-items: center; gap: 12px; height: 58px; position: sticky; top: 0; z-index: 50;
+  }
+  .logo { font-family: 'Space Grotesk', sans-serif; font-size: 17px; font-weight: 700; color: var(--accent); }
+  .logo span { color: var(--green); }
+  .conn-status { margin-left: auto; display: flex; align-items: center; gap: 7px; font-size: 12px; color: var(--muted); }
+  .conn-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--yellow); transition: background .3s; }
+  .conn-dot.ok { background: var(--green); }
+  .conn-dot.err { background: var(--red); }
+
+  /* Layout */
+  .wrapper { display: flex; height: calc(100vh - 58px); }
+
+  /* Sidebar */
+  nav { width: 210px; background: var(--surface); border-right: 1px solid var(--border); padding: 16px 10px; display: flex; flex-direction: column; gap: 2px; flex-shrink: 0; overflow-y: auto; }
+  .nav-label { font-size: 10px; font-weight: 600; color: var(--muted); letter-spacing: 1px; text-transform: uppercase; padding: 10px 10px 4px; }
+  nav button { display: flex; align-items: center; gap: 9px; width: 100%; background: none; border: none; color: var(--muted); padding: 8px 12px; border-radius: 7px; cursor: pointer; font-size: 13px; font-weight: 500; transition: background .12s, color .12s; text-align: left; }
+  nav button:hover { background: var(--card); color: var(--text); }
+  nav button.active { background: rgba(79,142,247,.15); color: var(--accent); }
+  .icon { font-size: 15px; width: 18px; text-align: center; }
+
+  /* Main */
+  main { flex: 1; overflow-y: auto; padding: 26px 30px; }
+  .page { display: none; }
+  .page.active { display: block; }
+
+  /* Page header */
+  .page-header { display: flex; align-items: flex-start; justify-content: space-between; margin-bottom: 20px; }
+  .page-header h1 { font-family: 'Space Grotesk', sans-serif; font-size: 19px; font-weight: 700; }
+  .page-header p { color: var(--muted); font-size: 12px; margin-top: 3px; }
+
+  /* Stats */
+  .stats { display: flex; gap: 12px; margin-bottom: 20px; flex-wrap: wrap; }
+  .stat-card { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius); padding: 14px 18px; min-width: 120px; }
+  .stat-card .val { font-family: 'Space Grotesk', sans-serif; font-size: 22px; font-weight: 700; }
+  .stat-card .lbl { font-size: 11px; color: var(--muted); margin-top: 2px; }
+  .val.blue { color: var(--accent); } .val.green { color: var(--green); } .val.red { color: var(--red); } .val.gold { color: var(--yellow); }
+
+  /* Buttons */
+  .btn { display: inline-flex; align-items: center; gap: 6px; padding: 8px 15px; border-radius: var(--radius); font-size: 13px; font-weight: 600; cursor: pointer; border: none; transition: filter .12s; }
+  .btn:hover { filter: brightness(1.12); }
+  .btn-primary { background: var(--accent); color: #fff; }
+  .btn-success { background: var(--green); color: #0b0f1a; }
+  .btn-danger  { background: var(--red); color: #fff; }
+  .btn-ghost   { background: var(--border); color: var(--text); }
+  .btn-sm      { padding: 5px 10px; font-size: 12px; }
+
+  /* Table */
+  .table-wrap { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden; }
+  table { width: 100%; border-collapse: collapse; }
+  thead th { background: var(--surface); color: var(--muted); font-size: 11px; font-weight: 600; letter-spacing: .7px; text-transform: uppercase; padding: 10px 14px; text-align: left; border-bottom: 1px solid var(--border); }
+  tbody tr { border-bottom: 1px solid var(--border); transition: background .1s; }
+  tbody tr:last-child { border-bottom: none; }
+  tbody tr:hover { background: rgba(255,255,255,.025); }
+  tbody td { padding: 10px 14px; vertical-align: middle; }
+  .actions { display: flex; gap: 6px; }
+
+  /* Modal */
+  .modal-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,.6); z-index: 100; align-items: center; justify-content: center; }
+  .modal-overlay.open { display: flex; }
+  .modal { background: var(--card); border: 1px solid var(--border); border-radius: 14px; width: 500px; max-width: 96vw; max-height: 90vh; overflow-y: auto; padding: 26px; animation: pop .16s ease; }
+  @keyframes pop { from { transform: scale(.95); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+  .modal h2 { font-family: 'Space Grotesk', sans-serif; font-size: 16px; font-weight: 700; margin-bottom: 18px; }
+  .modal-footer { display: flex; gap: 10px; justify-content: flex-end; margin-top: 20px; }
+
+  /* Form */
+  .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 13px; }
+  .form-full { grid-column: 1 / -1; }
+  .form-group { display: flex; flex-direction: column; gap: 5px; }
+  label { font-size: 12px; font-weight: 500; color: var(--muted); }
+  input, select { background: var(--surface); border: 1px solid var(--border); border-radius: 7px; color: var(--text); padding: 8px 11px; font-size: 13px; width: 100%; outline: none; transition: border-color .15s; }
+  input:focus, select:focus { border-color: var(--accent); }
+  select option { background: var(--surface); }
+
+  /* Toast */
+  .toast { position: fixed; bottom: 24px; right: 24px; background: var(--card); border: 1px solid var(--border); color: var(--text); padding: 11px 18px; border-radius: 9px; font-size: 13px; font-weight: 500; z-index: 200; transform: translateY(60px); opacity: 0; transition: transform .25s, opacity .25s; box-shadow: 0 8px 24px rgba(0,0,0,.4); }
+  .toast.show { transform: translateY(0); opacity: 1; }
+  .toast.err { border-color: var(--red); color: var(--red); }
+
+  /* Spinner */
+  .spinner { width: 22px; height: 22px; border: 3px solid var(--border); border-top-color: var(--accent); border-radius: 50%; animation: spin .7s linear infinite; display: inline-block; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo">Saúde<span>Admin</span></div>
+  <div class="conn-status">
+    <div class="conn-dot" id="conn-dot"></div>
+    <span id="conn-label">Verificando...</span>
+  </div>
+</header>
+
+<div class="wrapper">
+  <nav>
+    <div class="nav-label">Cadastros</div>
+    <button class="active" onclick="nav('regioes')"><span class="icon">🗺️</span>Regiões</button>
+    <button onclick="nav('pessoas')"><span class="icon">👤</span>Pessoas</button>
+    <button onclick="nav('operadoras')"><span class="icon">🏥</span>Operadoras</button>
+    <button onclick="nav('planos')"><span class="icon">📋</span>Planos</button>
+    <button onclick="nav('tabelas')"><span class="icon">💰</span>Tabelas de Preço</button>
+    <button onclick="nav('vendedores')"><span class="icon">🧑‍💼</span>Vendedores</button>
+    <button onclick="nav('configs')"><span class="icon">⚙️</span>Config. Comissão</button>
+    <button onclick="nav('associacoes')"><span class="icon">🤝</span>Associações</button>
+    <div class="nav-label">Contratos</div>
+    <button onclick="nav('contratos')"><span class="icon">📄</span>Contratos</button>
+  </nav>
+
+  <main>
+
+    <!-- REGIOES -->
+    <div class="page active" id="page-regioes">
+      <div class="page-header">
+        <div><h1>🗺️ Regiões</h1><p>Gerencie as regiões do sistema</p></div>
+        <button class="btn btn-primary" onclick="abrirModal('regiao')">＋ Nova Região</button>
+      </div>
+      <div class="stats" id="stats-regioes"></div>
+      <div class="table-wrap"><table>
+        <thead><tr><th>ID</th><th>Nome</th><th>UF</th><th>Descrição</th><th>Ações</th></tr></thead>
+        <tbody id="tbody-regioes"><tr><td colspan="5" style="text-align:center;padding:30px"><div class="spinner"></div></td></tr></tbody>
+      </table></div>
+    </div>
+
+    <!-- PESSOAS -->
+    <div class="page" id="page-pessoas">
+      <div class="page-header">
+        <div><h1>👤 Pessoas</h1><p>Clientes e empresas cadastradas</p></div>
+        <button class="btn btn-primary" onclick="abrirModal('pessoa')">＋ Nova Pessoa</button>
+      </div>
+      <div class="stats" id="stats-pessoas"></div>
+      <div class="table-wrap"><table>
+        <thead><tr><th>ID</th><th>Nome</th><th>CPF/CNPJ</th><th>Tipo</th><th>Idade</th><th>Telefone</th><th>Região</th><th>Ações</th></tr></thead>
+        <tbody id="tbody-pessoas"></tbody>
+      </table></div>
+    </div>
+
+    <!-- OPERADORAS -->
+    <div class="page" id="page-operadoras">
+      <div class="page-header">
+        <div><h1>🏥 Operadoras</h1><p>Operadoras de planos de saúde</p></div>
+        <button class="btn btn-primary" onclick="abrirModal('operadora')">＋ Nova Operadora</button>
+      </div>
+      <div class="stats" id="stats-operadoras"></div>
+      <div class="table-wrap"><table>
+        <thead><tr><th>ID</th><th>Nome</th><th>CNPJ</th><th>Registro ANS</th><th>Telefone</th><th>Email</th><th>Ações</th></tr></thead>
+        <tbody id="tbody-operadoras"></tbody>
+      </table></div>
+    </div>
+
+    <!-- PLANOS -->
+    <div class="page" id="page-planos">
+      <div class="page-header">
+        <div><h1>📋 Planos</h1><p>Planos de saúde disponíveis</p></div>
+        <button class="btn btn-primary" onclick="abrirModal('plano')">＋ Novo Plano</button>
+      </div>
+      <div class="stats" id="stats-planos"></div>
+      <div class="table-wrap"><table>
+        <thead><tr><th>ID</th><th>Nome</th><th>Tipo</th><th>Cobertura</th><th>Acomodação</th><th>Operadora</th><th>Ações</th></tr></thead>
+        <tbody id="tbody-planos"></tbody>
+      </table></div>
+    </div>
+
+    <!-- TABELAS DE PRECO -->
+    <div class="page" id="page-tabelas">
+      <div class="page-header">
+        <div><h1>💰 Tabelas de Preço</h1><p>Valores por faixa etária e plano</p></div>
+        <button class="btn btn-primary" onclick="abrirModal('tabela')">＋ Nova Tabela</button>
+      </div>
+      <div class="stats" id="stats-tabelas"></div>
+      <div class="table-wrap"><table>
+        <thead><tr><th>ID</th><th>Plano</th><th>Faixa Etária</th><th>Valor Base</th><th>Início Vigência</th><th>Fim Vigência</th><th>Ações</th></tr></thead>
+        <tbody id="tbody-tabelas"></tbody>
+      </table></div>
+    </div>
+
+    <!-- VENDEDORES -->
+    <div class="page" id="page-vendedores">
+      <div class="page-header">
+        <div><h1>🧑‍💼 Vendedores</h1><p>Equipe comercial</p></div>
+        <button class="btn btn-primary" onclick="abrirModal('vendedor')">＋ Novo Vendedor</button>
+      </div>
+      <div class="stats" id="stats-vendedores"></div>
+      <div class="table-wrap"><table>
+        <thead><tr><th>ID</th><th>Nome</th><th>Ações</th></tr></thead>
+        <tbody id="tbody-vendedores"></tbody>
+      </table></div>
+    </div>
+
+    <!-- CONFIG COMISSAO -->
+    <div class="page" id="page-configs">
+      <div class="page-header">
+        <div><h1>⚙️ Config. de Comissão</h1><p>Percentuais por operadora e vendedor</p></div>
+        <button class="btn btn-primary" onclick="abrirModal('config')">＋ Nova Config.</button>
+      </div>
+      <div class="stats" id="stats-configs"></div>
+      <div class="table-wrap"><table>
+        <thead><tr><th>ID</th><th>Descrição</th><th>% Comissão</th><th>Operadora</th><th>Vendedor</th><th>Ações</th></tr></thead>
+        <tbody id="tbody-configs"></tbody>
+      </table></div>
+    </div>
+
+    <!-- ASSOCIACOES -->
+    <div class="page" id="page-associacoes">
+      <div class="page-header">
+        <div><h1>🤝 Associações</h1><p>Entidades associativas</p></div>
+        <button class="btn btn-primary" onclick="abrirModal('associacao')">＋ Nova Associação</button>
+      </div>
+      <div class="stats" id="stats-associacoes"></div>
+      <div class="table-wrap"><table>
+        <thead><tr><th>ID</th><th>Nome</th><th>CNPJ</th><th>Telefone</th><th>Email</th><th>Região</th><th>Ações</th></tr></thead>
+        <tbody id="tbody-associacoes"></tbody>
+      </table></div>
+    </div>
+
+    <!-- CONTRATOS -->
+    <div class="page" id="page-contratos">
+      <div class="page-header">
+        <div><h1>📄 Contratos</h1><p>Contratos de planos de saúde</p></div>
+        <button class="btn btn-primary" onclick="abrirModal('contrato')">＋ Novo Contrato</button>
+      </div>
+      <div class="stats" id="stats-contratos"></div>
+      <div class="table-wrap"><table>
+        <thead><tr><th>Nº</th><th>Pessoa</th><th>Plano</th><th>Valor</th><th>Operadora</th><th>Vendedor</th><th>Associação</th><th>Início</th><th>Fim</th><th>Ações</th></tr></thead>
+        <tbody id="tbody-contratos"></tbody>
+      </table></div>
+    </div>
+
+  </main>
+</div>
+
+<!-- MODALS -->
+
+<!-- Região -->
+<div class="modal-overlay" id="modal-regiao">
+  <div class="modal">
+    <h2 id="titulo-regiao">Nova Região</h2>
+    <input type="hidden" id="reg-id">
+    <div class="form-grid">
+      <div class="form-group form-full"><label>Nome da Região</label><input id="reg-nome" placeholder="Ex: Grande Florianópolis"></div>
+      <div class="form-group"><label>UF</label><input id="reg-uf" placeholder="SC" maxlength="2"></div>
+      <div class="form-group"><label>Descrição</label><input id="reg-desc" placeholder="Descrição opcional"></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="fecharModal('regiao')">Cancelar</button>
+      <button class="btn btn-primary" onclick="salvarRegiao()">Salvar</button>
+    </div>
+  </div>
+</div>
+
+<!-- Pessoa -->
+<div class="modal-overlay" id="modal-pessoa">
+  <div class="modal">
+    <h2 id="titulo-pessoa">Nova Pessoa</h2>
+    <input type="hidden" id="pe-id">
+    <div class="form-grid">
+      <div class="form-group form-full"><label>Nome</label><input id="pe-nome" placeholder="Nome completo"></div>
+      <div class="form-group"><label>CPF/CNPJ</label><input id="pe-cpf" placeholder="000.000.000-00"></div>
+      <div class="form-group"><label>Idade</label><input id="pe-idade" type="number" placeholder="30"></div>
+      <div class="form-group"><label>Telefone</label><input id="pe-tel" placeholder="(48) 99999-9999"></div>
+      <div class="form-group"><label>Email</label><input id="pe-email" type="email" placeholder="email@exemplo.com"></div>
+      <div class="form-group"><label>Tipo</label><select id="pe-tipo"><option value="P">Pessoa Física</option><option value="J">Pessoa Jurídica</option></select></div>
+      <div class="form-group form-full"><label>Região</label><select id="pe-regiao"><option value="">Carregando...</option></select></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="fecharModal('pessoa')">Cancelar</button>
+      <button class="btn btn-primary" onclick="salvarPessoa()">Salvar</button>
+    </div>
+  </div>
+</div>
+
+<!-- Operadora -->
+<div class="modal-overlay" id="modal-operadora">
+  <div class="modal">
+    <h2 id="titulo-operadora">Nova Operadora</h2>
+    <input type="hidden" id="op-id">
+    <div class="form-grid">
+      <div class="form-group form-full"><label>Nome</label><input id="op-nome" placeholder="Nome da operadora"></div>
+      <div class="form-group"><label>CNPJ</label><input id="op-cnpj" placeholder="00000000000000"></div>
+      <div class="form-group"><label>Registro ANS</label><input id="op-ans" type="number" placeholder="000000"></div>
+      <div class="form-group"><label>Telefone</label><input id="op-tel" placeholder="(48) 3333-3333"></div>
+      <div class="form-group form-full"><label>Email</label><input id="op-email" type="email" placeholder="contato@operadora.com"></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="fecharModal('operadora')">Cancelar</button>
+      <button class="btn btn-primary" onclick="salvarOperadora()">Salvar</button>
+    </div>
+  </div>
+</div>
+
+<!-- Plano -->
+<div class="modal-overlay" id="modal-plano">
+  <div class="modal">
+    <h2 id="titulo-plano">Novo Plano</h2>
+    <input type="hidden" id="pl-id">
+    <div class="form-grid">
+      <div class="form-group form-full"><label>Nome do Plano</label><input id="pl-nome" placeholder="Ex: Plano Premium"></div>
+      <div class="form-group"><label>Tipo</label><select id="pl-tipo"><option value="M">Médico</option><option value="O">Odontológico</option></select></div>
+      <div class="form-group"><label>Cobertura</label><input id="pl-cobertura" placeholder="Ex: Nacional"></div>
+      <div class="form-group"><label>Acomodação</label><input id="pl-acomodacao" placeholder="Ex: Enfermaria"></div>
+      <div class="form-group form-full"><label>Operadora</label><select id="pl-operadora"><option value="">Carregando...</option></select></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="fecharModal('plano')">Cancelar</button>
+      <button class="btn btn-primary" onclick="salvarPlano()">Salvar</button>
+    </div>
+  </div>
+</div>
+
+<!-- Tabela de Preço -->
+<div class="modal-overlay" id="modal-tabela">
+  <div class="modal">
+    <h2 id="titulo-tabela">Nova Tabela de Preço</h2>
+    <input type="hidden" id="tb-id">
+    <div class="form-grid">
+      <div class="form-group form-full"><label>Plano</label><select id="tb-plano"><option value="">Carregando...</option></select></div>
+      <div class="form-group"><label>Faixa Etária</label><input id="tb-faixa" placeholder="Ex: 18-28"></div>
+      <div class="form-group"><label>Valor Base (R$)</label><input id="tb-valor" type="number" step="0.01" placeholder="350.00"></div>
+      <div class="form-group"><label>Início Vigência</label><input id="tb-inicio" type="date"></div>
+      <div class="form-group"><label>Fim Vigência</label><input id="tb-fim" type="date"></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="fecharModal('tabela')">Cancelar</button>
+      <button class="btn btn-primary" onclick="salvarTabela()">Salvar</button>
+    </div>
+  </div>
+</div>
+
+<!-- Vendedor -->
+<div class="modal-overlay" id="modal-vendedor">
+  <div class="modal">
+    <h2 id="titulo-vendedor">Novo Vendedor</h2>
+    <input type="hidden" id="vd-id">
+    <div class="form-grid">
+      <div class="form-group form-full"><label>Nome</label><input id="vd-nome" placeholder="Nome do vendedor"></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="fecharModal('vendedor')">Cancelar</button>
+      <button class="btn btn-primary" onclick="salvarVendedor()">Salvar</button>
+    </div>
+  </div>
+</div>
+
+<!-- Config Comissão -->
+<div class="modal-overlay" id="modal-config">
+  <div class="modal">
+    <h2 id="titulo-config">Nova Config. de Comissão</h2>
+    <input type="hidden" id="cf-id">
+    <div class="form-grid">
+      <div class="form-group form-full"><label>Descrição</label><input id="cf-desc" placeholder="Ex: Comissão padrão Sul"></div>
+      <div class="form-group"><label>% Comissão</label><input id="cf-perc" type="number" step="0.01" placeholder="5.00"></div>
+      <div class="form-group"><label>Operadora</label><select id="cf-operadora"><option value="">Carregando...</option></select></div>
+      <div class="form-group"><label>Vendedor</label><select id="cf-vendedor"><option value="">Carregando...</option></select></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="fecharModal('config')">Cancelar</button>
+      <button class="btn btn-primary" onclick="salvarConfig()">Salvar</button>
+    </div>
+  </div>
+</div>
+
+<!-- Associação -->
+<div class="modal-overlay" id="modal-associacao">
+  <div class="modal">
+    <h2 id="titulo-associacao">Nova Associação</h2>
+    <input type="hidden" id="as-id">
+    <div class="form-grid">
+      <div class="form-group form-full"><label>Nome</label><input id="as-nome" placeholder="Nome da associação"></div>
+      <div class="form-group"><label>CNPJ</label><input id="as-cnpj" placeholder="00000000000000"></div>
+      <div class="form-group"><label>Telefone</label><input id="as-tel" placeholder="(48) 3333-3333"></div>
+      <div class="form-group"><label>Email</label><input id="as-email" type="email" placeholder="contato@associacao.com"></div>
+      <div class="form-group form-full"><label>Região</label><select id="as-regiao"><option value="">Carregando...</option></select></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="fecharModal('associacao')">Cancelar</button>
+      <button class="btn btn-primary" onclick="salvarAssociacao()">Salvar</button>
+    </div>
+  </div>
+</div>
+
+<!-- Contrato -->
+<div class="modal-overlay" id="modal-contrato">
+  <div class="modal">
+    <h2>Novo Contrato</h2>
+    <div class="form-grid">
+      <div class="form-group"><label>Número do Contrato</label><input id="ct-numero" type="number" placeholder="1001"></div>
+      <div class="form-group"><label>Data Início</label><input id="ct-inicio" type="date"></div>
+      <div class="form-group"><label>Data Fim</label><input id="ct-fim" type="date"></div>
+      <div class="form-group form-full"><label>Pessoa</label><select id="ct-pessoa"><option value="">Carregando...</option></select></div>
+      <div class="form-group form-full"><label>Config. de Comissão</label><select id="ct-config"><option value="">Carregando...</option></select></div>
+      <div class="form-group form-full"><label>Associação</label><select id="ct-assoc"><option value="">Carregando...</option></select></div>
+      <div class="form-group form-full"><label>Tabela de Preço</label><select id="ct-tabela"><option value="">Carregando...</option></select></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="fecharModal('contrato')">Cancelar</button>
+      <button class="btn btn-primary" onclick="salvarContrato()">Salvar</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+const API = 'http://localhost:8080/api';
+
+// ── Nav ──────────────────────────────────────────────────────
+function nav(id) {
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('nav button').forEach(b => b.classList.remove('active'));
+  document.getElementById('page-' + id).classList.add('active');
+  event.currentTarget.classList.add('active');
+  const loaders = { regioes: carregarRegioes, pessoas: carregarPessoas, operadoras: carregarOperadoras,
+    planos: carregarPlanos, tabelas: carregarTabelas, vendedores: carregarVendedores,
+    configs: carregarConfigs, associacoes: carregarAssociacoes, contratos: carregarContratos };
+  if (loaders[id]) loaders[id]();
+}
+
+// ── Modal ────────────────────────────────────────────────────
+function abrirModal(nome) {
+  const overlay = document.getElementById('modal-' + nome);
+  overlay.classList.add('open');
+  const fills = {
+    pessoa: () => preencherSelect('pe-regiao', '/regioes', r => ({ v: r.idRegiao, l: `${r.nomeRegiao} (${r.uf})` })),
+    plano:  () => preencherSelect('pl-operadora', '/operadoras', o => ({ v: o.idOperadora, l: o.nomeOperadora })),
+    tabela: () => preencherSelect('tb-plano', '/planos', p => ({ v: p.idPlano, l: p.nomePlano })),
+    config: () => {
+      preencherSelect('cf-operadora', '/operadoras', o => ({ v: o.idOperadora, l: o.nomeOperadora }));
+      preencherSelect('cf-vendedor', '/vendedores', v => ({ v: v.idVendedor, l: v.nomeVendedor }));
+    },
+    associacao: () => preencherSelect('as-regiao', '/regioes', r => ({ v: r.idRegiao, l: `${r.nomeRegiao} (${r.uf})` })),
+    contrato: () => {
+      preencherSelect('ct-pessoa', '/pessoas', p => ({ v: p.idPessoa, l: p.nomePessoa }));
+      preencherSelect('ct-config', '/configs', c => ({ v: c.idConfigComissao, l: `${c.descricaoConfig} (${c.percentualComissao}%)` }));
+      preencherSelect('ct-assoc', '/associacoes', a => ({ v: a.idAssociacao, l: a.nomeAssociacao }));
+      preencherSelect('ct-tabela', '/tabelas', t => ({ v: t.idTabelaPreco, l: `${t.nomePlano} | ${t.faixaEtaria} | R$ ${Number(t.valorBase).toFixed(2)}` }));
+    },
+  };
+  if (fills[nome]) fills[nome]();
+}
+
+function fecharModal(nome) {
+  document.getElementById('modal-' + nome).classList.remove('open');
+  // limpar campos de texto/número
+  document.querySelectorAll(`#modal-${nome} input:not([type=hidden])`).forEach(i => i.value = '');
+  document.querySelectorAll(`#modal-${nome} [type=hidden]`).forEach(i => i.value = '');
+}
+
+async function preencherSelect(id, endpoint, mapFn) {
+  const sel = document.getElementById(id);
+  sel.innerHTML = '<option value="">Carregando...</option>';
+  try {
+    const data = await fetch(API + endpoint).then(r => r.json());
+    sel.innerHTML = '<option value="">Selecione...</option>' + data.map(item => {
+      const { v, l } = mapFn(item);
+      return `<option value="${v}">${l}</option>`;
+    }).join('');
+  } catch { sel.innerHTML = '<option value="">Erro ao carregar</option>'; }
+}
+
+// ── Toast ────────────────────────────────────────────────────
+let toastTimer;
+function toast(msg, err = false) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.className = 'toast show' + (err ? ' err' : '');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => t.classList.remove('show'), 3000);
+}
+
+// ── Conexão ──────────────────────────────────────────────────
+async function verificarConexao() {
+  const dot = document.getElementById('conn-dot');
+  const lbl = document.getElementById('conn-label');
+  try {
+    await fetch(API + '/regioes', { signal: AbortSignal.timeout(3000) });
+    dot.className = 'conn-dot ok'; lbl.textContent = 'Conectado';
+  } catch {
+    dot.className = 'conn-dot err'; lbl.textContent = 'Sem conexão';
+  }
+}
+
+// ── Helper: stats ────────────────────────────────────────────
+function renderStats(id, items) {
+  document.getElementById(id).innerHTML = items.map(i =>
+    `<div class="stat-card"><div class="val ${i.color}">${i.value}</div><div class="lbl">${i.label}</div></div>`
+  ).join('');
+}
+function emptyRow(cols, msg) {
+  return `<tr><td colspan="${cols}" style="text-align:center;padding:28px;color:var(--muted)">${msg}</td></tr>`;
+}
+
+// ════════════════ REGIOES ════════════════════════
+
+async function carregarRegioes() {
+  const tbody = document.getElementById('tbody-regioes');
+  tbody.innerHTML = `<tr><td colspan="5" style="text-align:center;padding:30px"><div class="spinner"></div></td></tr>`;
+  try {
+    const data = await fetch(API + '/regioes').then(r => r.json());
+    renderStats('stats-regioes', [{ label: 'Total', value: data.length, color: 'blue' }]);
+    if (!data.length) { tbody.innerHTML = emptyRow(5, 'Nenhuma região cadastrada.'); return; }
+    tbody.innerHTML = data.map(r => `<tr>
+      <td><b>#${r.idRegiao}</b></td><td>${r.nomeRegiao}</td><td>${r.uf}</td><td>${r.descricaoRegiao||'—'}</td>
+      <td><div class="actions">
+        <button class="btn btn-ghost btn-sm" onclick='editarRegiao(${JSON.stringify(r)})'>✏️ Editar</button>
+        <button class="btn btn-danger btn-sm" onclick="excluir('regioes',${r.idRegiao},carregarRegioes)">🗑️</button>
+      </div></td></tr>`).join('');
+  } catch { tbody.innerHTML = emptyRow(5, 'Sem conexão com o servidor.'); toast('Sem conexão com o servidor', true); }
+}
+
+function editarRegiao(r) {
+  document.getElementById('titulo-regiao').textContent = 'Editar Região';
+  document.getElementById('reg-id').value   = r.idRegiao;
+  document.getElementById('reg-nome').value = r.nomeRegiao;
+  document.getElementById('reg-uf').value   = r.uf;
+  document.getElementById('reg-desc').value = r.descricaoRegiao || '';
+  abrirModal('regiao');
+}
+
+async function salvarRegiao() {
+  const id   = document.getElementById('reg-id').value;
+  const body = { nomeRegiao: document.getElementById('reg-nome').value, uf: document.getElementById('reg-uf').value, descricaoRegiao: document.getElementById('reg-desc').value };
+  await salvarGenerico(id, 'regioes', body, 'regiao', carregarRegioes, 'Região');
+}
+
+// ════════════════ PESSOAS ════════════════════════
+
+async function carregarPessoas() {
+  const tbody = document.getElementById('tbody-pessoas');
+  tbody.innerHTML = `<tr><td colspan="8" style="text-align:center;padding:30px"><div class="spinner"></div></td></tr>`;
+  try {
+    const data = await fetch(API + '/pessoas').then(r => r.json());
+    const fisica   = data.filter(p => p.tipoPessoa === 'P').length;
+    const juridica = data.length - fisica;
+    renderStats('stats-pessoas', [
+      { label: 'Total', value: data.length, color: 'blue' },
+      { label: 'Pessoa Física', value: fisica, color: 'green' },
+      { label: 'Pessoa Jurídica', value: juridica, color: 'gold' },
+    ]);
+    if (!data.length) { tbody.innerHTML = emptyRow(8, 'Nenhuma pessoa cadastrada.'); return; }
+    tbody.innerHTML = data.map(p => `<tr>
+      <td><b>#${p.idPessoa}</b></td><td>${p.nomePessoa}</td><td>${p.cpfCnpj}</td>
+      <td>${p.tipoPessoa === 'P' ? 'Física' : 'Jurídica'}</td><td>${p.idade}</td>
+      <td>${p.telefone||'—'}</td><td>${p.nomeRegiao} (${p.uf})</td>
+      <td><div class="actions">
+        <button class="btn btn-ghost btn-sm" onclick='editarPessoa(${JSON.stringify(p)})'>✏️ Editar</button>
+        <button class="btn btn-danger btn-sm" onclick="excluir('pessoas',${p.idPessoa},carregarPessoas)">🗑️</button>
+      </div></td></tr>`).join('');
+  } catch { tbody.innerHTML = emptyRow(8, 'Sem conexão com o servidor.'); toast('Sem conexão com o servidor', true); }
+}
+
+function editarPessoa(p) {
+  document.getElementById('titulo-pessoa').textContent = 'Editar Pessoa';
+  document.getElementById('pe-id').value    = p.idPessoa;
+  document.getElementById('pe-nome').value  = p.nomePessoa;
+  document.getElementById('pe-cpf').value   = p.cpfCnpj;
+  document.getElementById('pe-idade').value = p.idade;
+  document.getElementById('pe-tel').value   = p.telefone;
+  document.getElementById('pe-email').value = p.email;
+  document.getElementById('pe-tipo').value  = p.tipoPessoa;
+  abrirModal('pessoa');
+  preencherSelect('pe-regiao', '/regioes', r => ({ v: r.idRegiao, l: `${r.nomeRegiao} (${r.uf})` }))
+    .then(() => { document.getElementById('pe-regiao').value = p.idRegiao; });
+}
+
+async function salvarPessoa() {
+  const id   = document.getElementById('pe-id').value;
+  const body = {
+    nomePessoa: document.getElementById('pe-nome').value,
+    cpfCnpj:    document.getElementById('pe-cpf').value,
+    idade:      parseInt(document.getElementById('pe-idade').value),
+    telefone:   document.getElementById('pe-tel').value,
+    email:      document.getElementById('pe-email').value,
+    tipoPessoa: document.getElementById('pe-tipo').value,
+    idRegiao:   document.getElementById('pe-regiao').value,
+  };
+  await salvarGenerico(id, 'pessoas', body, 'pessoa', carregarPessoas, 'Pessoa');
+}
+
+// ════════════════ OPERADORAS ═════════════════════
+
+async function carregarOperadoras() {
+  const tbody = document.getElementById('tbody-operadoras');
+  tbody.innerHTML = `<tr><td colspan="7" style="text-align:center;padding:30px"><div class="spinner"></div></td></tr>`;
+  try {
+    const data = await fetch(API + '/operadoras').then(r => r.json());
+    renderStats('stats-operadoras', [{ label: 'Total', value: data.length, color: 'blue' }]);
+    if (!data.length) { tbody.innerHTML = emptyRow(7, 'Nenhuma operadora cadastrada.'); return; }
+    tbody.innerHTML = data.map(o => `<tr>
+      <td><b>#${o.idOperadora}</b></td><td>${o.nomeOperadora}</td><td>${o.cnpj}</td>
+      <td>${o.registroAns}</td><td>${o.telefone||'—'}</td><td>${o.email||'—'}</td>
+      <td><div class="actions">
+        <button class="btn btn-ghost btn-sm" onclick='editarOperadora(${JSON.stringify(o)})'>✏️ Editar</button>
+        <button class="btn btn-danger btn-sm" onclick="excluir('operadoras',${o.idOperadora},carregarOperadoras)">🗑️</button>
+      </div></td></tr>`).join('');
+  } catch { tbody.innerHTML = emptyRow(7, 'Sem conexão com o servidor.'); toast('Sem conexão com o servidor', true); }
+}
+
+function editarOperadora(o) {
+  document.getElementById('titulo-operadora').textContent = 'Editar Operadora';
+  document.getElementById('op-id').value    = o.idOperadora;
+  document.getElementById('op-nome').value  = o.nomeOperadora;
+  document.getElementById('op-cnpj').value  = o.cnpj;
+  document.getElementById('op-ans').value   = o.registroAns;
+  document.getElementById('op-tel').value   = o.telefone;
+  document.getElementById('op-email').value = o.email;
+  abrirModal('operadora');
+}
+
+async function salvarOperadora() {
+  const id   = document.getElementById('op-id').value;
+  const body = {
+    nomeOperadora: document.getElementById('op-nome').value,
+    cnpj:          document.getElementById('op-cnpj').value,
+    registroAns:   parseInt(document.getElementById('op-ans').value) || 0,
+    telefone:      document.getElementById('op-tel').value,
+    email:         document.getElementById('op-email').value,
+  };
+  await salvarGenerico(id, 'operadoras', body, 'operadora', carregarOperadoras, 'Operadora');
+}
+
+// ════════════════ PLANOS ═════════════════════════
+
+async function carregarPlanos() {
+  const tbody = document.getElementById('tbody-planos');
+  tbody.innerHTML = `<tr><td colspan="7" style="text-align:center;padding:30px"><div class="spinner"></div></td></tr>`;
+  try {
+    const data = await fetch(API + '/planos').then(r => r.json());
+    const medicos = data.filter(p => p.tipoPlano === 'M').length;
+    renderStats('stats-planos', [
+      { label: 'Total', value: data.length, color: 'blue' },
+      { label: 'Médicos', value: medicos, color: 'green' },
+      { label: 'Odonto', value: data.length - medicos, color: 'gold' },
+    ]);
+    if (!data.length) { tbody.innerHTML = emptyRow(7, 'Nenhum plano cadastrado.'); return; }
+    tbody.innerHTML = data.map(p => `<tr>
+      <td><b>#${p.idPlano}</b></td><td>${p.nomePlano}</td>
+      <td>${p.tipoPlano === 'M' ? 'Médico' : 'Odonto'}</td>
+      <td>${p.cobertura}</td><td>${p.acomodacao}</td><td>${p.nomeOperadora}</td>
+      <td><div class="actions">
+        <button class="btn btn-ghost btn-sm" onclick='editarPlano(${JSON.stringify(p)})'>✏️ Editar</button>
+        <button class="btn btn-danger btn-sm" onclick="excluir('planos',${p.idPlano},carregarPlanos)">🗑️</button>
+      </div></td></tr>`).join('');
+  } catch { tbody.innerHTML = emptyRow(7, 'Sem conexão com o servidor.'); toast('Sem conexão com o servidor', true); }
+}
+
+function editarPlano(p) {
+  document.getElementById('titulo-plano').textContent = 'Editar Plano';
+  document.getElementById('pl-id').value        = p.idPlano;
+  document.getElementById('pl-nome').value      = p.nomePlano;
+  document.getElementById('pl-tipo').value      = p.tipoPlano;
+  document.getElementById('pl-cobertura').value = p.cobertura;
+  document.getElementById('pl-acomodacao').value= p.acomodacao;
+  abrirModal('plano');
+  preencherSelect('pl-operadora', '/operadoras', o => ({ v: o.idOperadora, l: o.nomeOperadora }))
+    .then(() => { document.getElementById('pl-operadora').value = p.idOperadora; });
+}
+
+async function salvarPlano() {
+  const id   = document.getElementById('pl-id').value;
+  const body = {
+    nomePlano:   document.getElementById('pl-nome').value,
+    tipoPlano:   document.getElementById('pl-tipo').value,
+    cobertura:   document.getElementById('pl-cobertura').value,
+    acomodacao:  document.getElementById('pl-acomodacao').value,
+    idOperadora: parseInt(document.getElementById('pl-operadora').value),
+  };
+  await salvarGenerico(id, 'planos', body, 'plano', carregarPlanos, 'Plano');
+}
+
+// ════════════════ TABELAS ════════════════════════
+
+async function carregarTabelas() {
+  const tbody = document.getElementById('tbody-tabelas');
+  tbody.innerHTML = `<tr><td colspan="7" style="text-align:center;padding:30px"><div class="spinner"></div></td></tr>`;
+  try {
+    const data = await fetch(API + '/tabelas').then(r => r.json());
+    const total = data.reduce((s, t) => s + t.valorBase, 0);
+    renderStats('stats-tabelas', [
+      { label: 'Total', value: data.length, color: 'blue' },
+      { label: 'Valor médio', value: data.length ? `R$ ${(total/data.length).toFixed(2)}` : 'R$ 0,00', color: 'green' },
+    ]);
+    if (!data.length) { tbody.innerHTML = emptyRow(7, 'Nenhuma tabela cadastrada.'); return; }
+    tbody.innerHTML = data.map(t => `<tr>
+      <td><b>#${t.idTabelaPreco}</b></td><td>${t.nomePlano}</td><td>${t.faixaEtaria}</td>
+      <td><b>R$ ${Number(t.valorBase).toFixed(2)}</b></td>
+      <td>${t.dataInicioVigencia}</td><td>${t.dataFinalVigencia}</td>
+      <td><div class="actions">
+        <button class="btn btn-ghost btn-sm" onclick='editarTabela(${JSON.stringify(t)})'>✏️ Editar</button>
+        <button class="btn btn-danger btn-sm" onclick="excluir('tabelas',${t.idTabelaPreco},carregarTabelas)">🗑️</button>
+      </div></td></tr>`).join('');
+  } catch { tbody.innerHTML = emptyRow(7, 'Sem conexão com o servidor.'); toast('Sem conexão com o servidor', true); }
+}
+
+function editarTabela(t) {
+  document.getElementById('titulo-tabela').textContent = 'Editar Tabela';
+  document.getElementById('tb-id').value     = t.idTabelaPreco;
+  document.getElementById('tb-faixa').value  = t.faixaEtaria;
+  document.getElementById('tb-valor').value  = t.valorBase;
+  document.getElementById('tb-inicio').value = t.dataInicioVigencia;
+  document.getElementById('tb-fim').value    = t.dataFinalVigencia;
+  abrirModal('tabela');
+  preencherSelect('tb-plano', '/planos', p => ({ v: p.idPlano, l: p.nomePlano }))
+    .then(() => { document.getElementById('tb-plano').value = t.idPlano; });
+}
+
+async function salvarTabela() {
+  const id   = document.getElementById('tb-id').value;
+  const body = {
+    idPlano:            parseInt(document.getElementById('tb-plano').value),
+    faixaEtaria:        document.getElementById('tb-faixa').value,
+    valorBase:          parseFloat(document.getElementById('tb-valor').value),
+    dataInicioVigencia: document.getElementById('tb-inicio').value,
+    dataFinalVigencia:  document.getElementById('tb-fim').value,
+  };
+  await salvarGenerico(id, 'tabelas', body, 'tabela', carregarTabelas, 'Tabela');
+}
+
+// ════════════════ VENDEDORES ═════════════════════
+
+async function carregarVendedores() {
+  const tbody = document.getElementById('tbody-vendedores');
+  tbody.innerHTML = `<tr><td colspan="3" style="text-align:center;padding:30px"><div class="spinner"></div></td></tr>`;
+  try {
+    const data = await fetch(API + '/vendedores').then(r => r.json());
+    renderStats('stats-vendedores', [{ label: 'Total', value: data.length, color: 'blue' }]);
+    if (!data.length) { tbody.innerHTML = emptyRow(3, 'Nenhum vendedor cadastrado.'); return; }
+    tbody.innerHTML = data.map(v => `<tr>
+      <td><b>#${v.idVendedor}</b></td><td>${v.nomeVendedor}</td>
+      <td><div class="actions">
+        <button class="btn btn-ghost btn-sm" onclick='editarVendedor(${JSON.stringify(v)})'>✏️ Editar</button>
+        <button class="btn btn-danger btn-sm" onclick="excluir('vendedores',${v.idVendedor},carregarVendedores)">🗑️</button>
+      </div></td></tr>`).join('');
+  } catch { tbody.innerHTML = emptyRow(3, 'Sem conexão com o servidor.'); toast('Sem conexão com o servidor', true); }
+}
+
+function editarVendedor(v) {
+  document.getElementById('titulo-vendedor').textContent = 'Editar Vendedor';
+  document.getElementById('vd-id').value   = v.idVendedor;
+  document.getElementById('vd-nome').value = v.nomeVendedor;
+  abrirModal('vendedor');
+}
+
+async function salvarVendedor() {
+  const id   = document.getElementById('vd-id').value;
+  const body = { nomeVendedor: document.getElementById('vd-nome').value };
+  await salvarGenerico(id, 'vendedores', body, 'vendedor', carregarVendedores, 'Vendedor');
+}
+
+// ════════════════ CONFIGS ════════════════════════
+
+async function carregarConfigs() {
+  const tbody = document.getElementById('tbody-configs');
+  tbody.innerHTML = `<tr><td colspan="6" style="text-align:center;padding:30px"><div class="spinner"></div></td></tr>`;
+  try {
+    const data = await fetch(API + '/configs').then(r => r.json());
+    renderStats('stats-configs', [{ label: 'Total', value: data.length, color: 'blue' }]);
+    if (!data.length) { tbody.innerHTML = emptyRow(6, 'Nenhuma config. cadastrada.'); return; }
+    tbody.innerHTML = data.map(c => `<tr>
+      <td><b>#${c.idConfigComissao}</b></td><td>${c.descricaoConfig}</td>
+      <td><b>${Number(c.percentualComissao).toFixed(2)}%</b></td>
+      <td>${c.nomeOperadora}</td><td>${c.nomeVendedor}</td>
+      <td><div class="actions">
+        <button class="btn btn-ghost btn-sm" onclick='editarConfig(${JSON.stringify(c)})'>✏️ Editar</button>
+        <button class="btn btn-danger btn-sm" onclick="excluir('configs',${c.idConfigComissao},carregarConfigs)">🗑️</button>
+      </div></td></tr>`).join('');
+  } catch { tbody.innerHTML = emptyRow(6, 'Sem conexão com o servidor.'); toast('Sem conexão com o servidor', true); }
+}
+
+function editarConfig(c) {
+  document.getElementById('titulo-config').textContent = 'Editar Config.';
+  document.getElementById('cf-id').value   = c.idConfigComissao;
+  document.getElementById('cf-desc').value = c.descricaoConfig;
+  document.getElementById('cf-perc').value = c.percentualComissao;
+  abrirModal('config');
+  preencherSelect('cf-operadora', '/operadoras', o => ({ v: o.idOperadora, l: o.nomeOperadora }))
+    .then(() => { document.getElementById('cf-operadora').value = c.idOperadora; });
+  preencherSelect('cf-vendedor', '/vendedores', v => ({ v: v.idVendedor, l: v.nomeVendedor }))
+    .then(() => { document.getElementById('cf-vendedor').value = c.idVendedor; });
+}
+
+async function salvarConfig() {
+  const id   = document.getElementById('cf-id').value;
+  const body = {
+    descricaoConfig:     document.getElementById('cf-desc').value,
+    percentualComissao:  parseFloat(document.getElementById('cf-perc').value),
+    idOperadora:         parseInt(document.getElementById('cf-operadora').value),
+    idVendedor:          parseInt(document.getElementById('cf-vendedor').value),
+  };
+  await salvarGenerico(id, 'configs', body, 'config', carregarConfigs, 'Config.');
+}
+
+// ════════════════ ASSOCIACOES ════════════════════
+
+async function carregarAssociacoes() {
+  const tbody = document.getElementById('tbody-associacoes');
+  tbody.innerHTML = `<tr><td colspan="7" style="text-align:center;padding:30px"><div class="spinner"></div></td></tr>`;
+  try {
+    const data = await fetch(API + '/associacoes').then(r => r.json());
+    renderStats('stats-associacoes', [{ label: 'Total', value: data.length, color: 'blue' }]);
+    if (!data.length) { tbody.innerHTML = emptyRow(7, 'Nenhuma associação cadastrada.'); return; }
+    tbody.innerHTML = data.map(a => `<tr>
+      <td><b>#${a.idAssociacao}</b></td><td>${a.nomeAssociacao}</td><td>${a.cnpj}</td>
+      <td>${a.telefone||'—'}</td><td>${a.email||'—'}</td><td>${a.nomeRegiao} (${a.uf})</td>
+      <td><div class="actions">
+        <button class="btn btn-ghost btn-sm" onclick='editarAssociacao(${JSON.stringify(a)})'>✏️ Editar</button>
+        <button class="btn btn-danger btn-sm" onclick="excluir('associacoes',${a.idAssociacao},carregarAssociacoes)">🗑️</button>
+      </div></td></tr>`).join('');
+  } catch { tbody.innerHTML = emptyRow(7, 'Sem conexão com o servidor.'); toast('Sem conexão com o servidor', true); }
+}
+
+function editarAssociacao(a) {
+  document.getElementById('titulo-associacao').textContent = 'Editar Associação';
+  document.getElementById('as-id').value    = a.idAssociacao;
+  document.getElementById('as-nome').value  = a.nomeAssociacao;
+  document.getElementById('as-cnpj').value  = a.cnpj;
+  document.getElementById('as-tel').value   = a.telefone;
+  document.getElementById('as-email').value = a.email;
+  abrirModal('associacao');
+  preencherSelect('as-regiao', '/regioes', r => ({ v: r.idRegiao, l: `${r.nomeRegiao} (${r.uf})` }))
+    .then(() => { document.getElementById('as-regiao').value = a.idRegiao; });
+}
+
+async function salvarAssociacao() {
+  const id   = document.getElementById('as-id').value;
+  const body = {
+    nomeAssociacao: document.getElementById('as-nome').value,
+    cnpj:           document.getElementById('as-cnpj').value,
+    telefone:       document.getElementById('as-tel').value,
+    email:          document.getElementById('as-email').value,
+    idRegiao:       parseInt(document.getElementById('as-regiao').value),
+  };
+  await salvarGenerico(id, 'associacoes', body, 'associacao', carregarAssociacoes, 'Associação');
+}
+
+// ════════════════ CONTRATOS ══════════════════════
+
+async function carregarContratos() {
+  const tbody = document.getElementById('tbody-contratos');
+  tbody.innerHTML = `<tr><td colspan="10" style="text-align:center;padding:30px"><div class="spinner"></div></td></tr>`;
+  try {
+    const data = await fetch(API + '/contratos').then(r => r.json());
+    renderStats('stats-contratos', [
+      { label: 'Total', value: data.length, color: 'blue' },
+    ]);
+    if (!data.length) { tbody.innerHTML = emptyRow(10, 'Nenhum contrato registrado.'); return; }
+    tbody.innerHTML = data.map(c => `<tr>
+      <td><b>#${c.numeroContrato}</b></td>
+      <td>${c.nomePessoa}</td>
+      <td>${c.nomePlano||'—'}</td>
+      <td><b>R$ ${Number(c.valorBase||0).toFixed(2)}</b></td>
+      <td>${c.nomeOperadora||'—'}</td>
+      <td>${c.nomeVendedor||'—'}</td>
+      <td>${c.nomeAssociacao||'—'}</td>
+      <td>${c.dataInicio||'—'}</td>
+      <td>${c.dataFim||'—'}</td>
+      <td><button class="btn btn-danger btn-sm" onclick="cancelarContrato(${c.idContrato})">Cancelar</button></td>
+    </tr>`).join('');
+  } catch { tbody.innerHTML = emptyRow(10, 'Sem conexão com o servidor.'); toast('Sem conexão com o servidor', true); }
+}
+
+async function salvarContrato() {
+  const body = {
+    numeroContrato:   parseInt(document.getElementById('ct-numero').value),
+    dataInicio:       document.getElementById('ct-inicio').value,
+    dataFim:          document.getElementById('ct-fim').value,
+    idPessoa:         parseInt(document.getElementById('ct-pessoa').value),
+    idConfigComissao: parseInt(document.getElementById('ct-config').value),
+    idAssociacao:     parseInt(document.getElementById('ct-assoc').value),
+    idTabelaPreco:    parseInt(document.getElementById('ct-tabela').value),
+  };
+  try {
+    const res = await fetch(API + '/contratos', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify(body) });
+    if (!res.ok) { const err = await res.json(); throw new Error(err.erro || 'Erro'); }
+    fecharModal('contrato'); carregarContratos(); toast('Contrato criado!');
+  } catch (e) { toast('Erro: ' + e.message, true); }
+}
+
+async function cancelarContrato(id) {
+  if (!confirm(`Cancelar o contrato #${id}?`)) return;
+  try {
+    await fetch(`${API}/contratos/${id}`, { method: 'DELETE' });
+    carregarContratos(); toast('Contrato cancelado.');
+  } catch { toast('Erro ao cancelar', true); }
+}
+
+// ════════════════ GENÉRICOS ══════════════════════
+
+async function salvarGenerico(id, endpoint, body, modal, reloader, nome) {
+  try {
+    const url    = id ? `${API}/${endpoint}/${id}` : `${API}/${endpoint}`;
+    const method = id ? 'PUT' : 'POST';
+    const res = await fetch(url, { method, headers: {'Content-Type':'application/json'}, body: JSON.stringify(body) });
+    if (!res.ok) { const err = await res.json().catch(() => ({})); throw new Error(err.erro || 'Erro'); }
+    fecharModal(modal); reloader(); toast(id ? `${nome} atualizado!` : `${nome} cadastrado!`);
+  } catch (e) { toast('Erro: ' + e.message, true); }
+}
+
+async function excluir(endpoint, id, reloader) {
+  if (!confirm('Confirma a exclusão?')) return;
+  try {
+    await fetch(`${API}/${endpoint}/${id}`, { method: 'DELETE' });
+    reloader(); toast('Excluído com sucesso.');
+  } catch { toast('Erro ao excluir', true); }
+}
+
+// ── Init ─────────────────────────────────────────────────────
+verificarConexao();
+setInterval(verificarConexao, 8000);
+carregarRegioes();
+</script>
+</body>
+</html>
