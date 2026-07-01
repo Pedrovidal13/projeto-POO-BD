@@ -75,12 +75,30 @@ public class RegiaoDAO {
     }
 
     public void excluir(int id) {
-        String sql = "DELETE FROM regiao WHERE id_regiao = ?";
         Connection conn = ConexaoMySQL.obterConexao();
-        try (PreparedStatement stmt = conn.prepareStatement(sql)) {
-            stmt.setInt(1, id);
-            stmt.executeUpdate();
-            System.out.println("Região excluída com sucesso!");
+        try {
+            // Verifica se há pessoas ou associações vinculadas
+            String checkSql = """
+            SELECT
+                (SELECT COUNT(*) FROM pessoa WHERE regiao_id_regiao = ?) +
+                (SELECT COUNT(*) FROM associacao WHERE regiao_id_regiao = ?) AS total
+            """;
+            try (PreparedStatement check = conn.prepareStatement(checkSql)) {
+                check.setInt(1, id);
+                check.setInt(2, id);
+                ResultSet rs = check.executeQuery();
+                if (rs.next() && rs.getInt("total") > 0) {
+                    System.out.println("Não é possível excluir: esta região possui pessoas ou associações vinculadas.");
+                    return;
+                }
+            }
+
+            String sql = "DELETE FROM regiao WHERE id_regiao = ?";
+            try (PreparedStatement stmt = conn.prepareStatement(sql)) {
+                stmt.setInt(1, id);
+                stmt.executeUpdate();
+                System.out.println("Região excluída com sucesso!");
+            }
         } catch (SQLException e) {
             System.out.println("Erro ao excluir região: " + e.getMessage());
         } finally {

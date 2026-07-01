@@ -44,9 +44,9 @@ public class TabelaPreco {
     @Override
     public String toString() {
         return "TabelaPreco #" + idTabelaPreco
-                + " | Plano: " + (plano != null ? plano.getNomePlano() : "—")
+                + " | Plano: " + plano
                 + " | Faixa: " + faixaEtaria
-                + " | Valor: R$ " + String.format("%.2f", valorBase)
+                + " | Valor: R$ " + valorBase
                 + " | Vigência: " + dataInicioVigencia + " até " + dataFinalVigencia;
     }
 }

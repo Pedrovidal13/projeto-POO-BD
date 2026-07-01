@@ -6,13 +6,7 @@ import java.sql.SQLException;
 
 public class ConexaoMySQL {
 
-
-    //private static final String URL =
-    //      "jdbc:mysql://127.0.0.1:3306/projeto?serverTimezone=UTC";
-    //private static final String URL =
-    //        "jdbc:mysql://127.0.0.1:3306/projeto?serverTimezone=UTC";
-
-    private static final String URL    = "jdbc:mysql://localhost:3306/administradora_saude";
+    private static final String URL    = "jdbc:mysql://localhost:3306/projeto";
     private static final String USUARIO = "root";
     private static final String SENHA   = "";  // WAMP por padrão não tem senha no root
 
